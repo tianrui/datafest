@@ -26,6 +26,20 @@ def load(fname):
 
     return res
 
+def dict2array(datadict):
+    """Convert data in dictionary into array
+
+    Input: datadict dictionary
+    Output: data numpy array
+
+    """
+    data = np.zeros(len(datadict.keys()), len(datadict[datadict.keys()[0]]))
+    idx = 0
+    for key in datadict.keys():
+        data[i] = np.asarray(datadict[key], dtype=float32)
+
+    return data
+
 def reduce_logsumexp(input_tensor, reduction_indices=1, keep_dims=False):
   """Computes the sum of elements across dimensions of a tensor in log domain.
      

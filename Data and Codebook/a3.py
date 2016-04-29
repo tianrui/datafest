@@ -80,7 +80,7 @@ def main1_3():
     """
     Run the algorithm with K = 1, 2, 3, 4, 5 and for each of these values of K, 
     compute and report the percentage of the data points belonging to each of the K clusters.
-    Comment on how many clusters you think is “best” and discuss this value in the context 
+    Comment on how many clusters you think is best and discuss this value in the context 
     of a 2D scatter plot of the data. Include the 2D scatter plot of data points colored
     by their cluster assignments.
     """
@@ -463,11 +463,98 @@ def main2_4():
 	
 	return
 
+def mog():
+    # Load the data
+    data_dict = utils.load_purchases()
+    data = utils.dict2array(data)
+
+    # Set constants.
+    K = 3
+    DATASET_SIZE, DATA_DIM  = data.shape
+    LEARNINGRATE = 0.01
+    ITERATIONS = 750
+    
+    # Initialize tf graph.
+    graph = tf.Graph()
+    with graph.as_default():
+        # Load data into tf.
+        tf_data = tf.cast(tf.constant(data), tf.float32)
+        
+        # Initialize mu array.
+        tf_mu = tf.Variable(tf.truncated_normal([K, DATA_DIM], dtype=tf.float32, stddev=1.0))
+        tf_phi = tf.Variable(tf.truncated_normal([1, K], dtype=tf.float32, mean=1.0, stddev=1.0/np.sqrt(DATA_DIM)))
+        tf_sig_sq = tf.exp(tf_phi)
+        tf_psi = tf.Variable(tf.truncated_normal([1, K], dtype=tf.float32, mean=1.0,stddev=1.0/np.sqrt(DATA_DIM)))
+        tf_pi = tf.exp(utils.logsoftmax(tf_psi))
+    
+        ed = tf_eucl_dist(tf_data, tf_mu)
+        loss = -tf.reduce_sum(utils.reduce_logsumexp(tf_log_pdf_clust(tf_data,tf_mu,tf_sig_sq, DATA_DIM)+tf.log(tf_pi), reduction_indices=1))
+        posterior = tf.exp(log_posterior(tf_data, tf_mu, tf_sig_sq, tf_pi, DATA_DIM))
+        cluster_hard_assignment = tf.argmax(posterior, 1)
+        weight = tf.constant([[0, 0.5, 1.0]]) # TODO: Replace this with linspace as func of K
+        cluster_soft_assignment = tf.reduce_sum(tf.mul(weight, posterior), reduction_indices=1)
+        optimizer = tf.train.AdamOptimizer(LEARNINGRATE, beta1=0.9, beta2=0.99, epsilon=1e-5).minimize(loss)
+
+    # Run session.
+    with tf.Session(graph=graph) as session:
+        
+        losses = np.zeros(ITERATIONS, dtype=np.float32)
+        tf.initialize_all_variables().run()
+
+        for i in range(ITERATIONS):
+            mu, sig_sq, psi, pi, ca, ca_soft, post = session.run([tf_mu, tf_sig_sq, tf_psi, tf_pi, cluster_hard_assignment, cluster_soft_assignment, posterior])
+            _, l, m = session.run([optimizer, loss, tf_mu])
+            losses[i] = l
+            if i % 100 == 0:
+                print "Loss at iteration %d: " % (i), l 
+            
+        print "Mu:"
+        print mu
+        print "Sigma:"
+        print sig_sq
+        print "Pi:"
+        print pi
+        print "Posterior:"
+        print post
+        print "Cluster hard assignment:"
+        print ca
+        red = [1, 0, 0]
+        green = [0, 1, 0]
+        blue = [0, 0, 1]
+        colours = [red, green, blue]
+        colour_list = [colours[ca[i]] for i in range(DATASET_SIZE)]
+        
+        # Plot data points labelled by the closest mean  
+        plt.scatter(data[:,0], data[:,1], c=colour_list, marker='.')
+        # Plot mean
+        plt.scatter(m[:,0], m[:,1], marker='h')
+        plt.show()
+        print m
+        
+        # Plot soft assignment scatterplots
+        # TODO: May be redo it so that C = C1*P(z=1|x) + C2*P(z=1|x) + C3*P(z=1|x)
+        # Where C1 = Red, C2 = Green, C3 = Blue. Right now using colourmap 'viridis'
+        print "Cluster soft assignment:"
+        print ca_soft
+        plt.figure()
+        plt.scatter(data[:,0], data[:,1], c=ca_soft, cmap='viridis', marker='.')
+        plt.scatter(m[:,0], m[:,1], marker='h')
+        plt.title("Soft Assignment to Gaussian Cluster")
+        # TODO: Add plot title, axis labels
+        plt.imsave("purchase_mog.csv")
+
+        #plt.show()
+    
+    return
+
 if __name__ == '__main__':
-	main1_2()
-	main1_3()
-	main1_4("data2D.npy")
-	
-	mog_k3()
-	main2_2_3()
-	main2_4()
+    mog()
+	#main1_2()
+	#main1_3()
+	#main1_4("data2D.npy")
+	#
+	#mog_k3()
+	#main2_2_3()
+	#main2_4()
+
+

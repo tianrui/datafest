@@ -67,7 +67,7 @@ def preproc_purchases(frac=1):
     Output: result array
     """
     rawdict = load_purchases(100)
-    size = len(raw_dict[raw_dict.keys()[0]])
+    size = len(rawdict[rawdict.keys()[0]])
     endind = int(size*frac)
     converted_list = []
     converted_list.append(str2num(rawdict['event_id'][:endind]))
@@ -76,7 +76,8 @@ def preproc_purchases(frac=1):
     converted_list.append(str2num(rawdict['minor_cat_name'][:endind]))
     converted_list.append(str2num(rawdict['venue_city'][:endind]))
     converted_list.append(str2num(rawdict['venue_state'][:endind]))
-    converted_list.append(rawdict['venue_postal_cd_sgmt_1'][:endind])
+    # converted_list.append(np.expand_dims(np.asarray(rawdict['venue_postal_cd_sgmt_1'][:endind]), axis=1))
+    converted_list.append(str2num(rawdict['venue_postal_cd_sgmt_1'][:endind]))
     converted_list.append(str2num(rawdict['la_event_type_cat'][:endind]))
     converted_list.append(str2num(rawdict['delivery_type_cd'][:endind]))
 

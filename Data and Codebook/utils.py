@@ -58,7 +58,7 @@ def str2num(strlist):
         
     return data
 
-def preproc_purchases(frac=1):
+def preproc_purchases(frac=0.01):
     """ Preprocess the purchase csv, convert to 2D array
     with numerical values, convert categorical data to one hot
     encoding.
@@ -67,7 +67,7 @@ def preproc_purchases(frac=1):
     Output: result array
     """
     rawdict = load_purchases(100)
-    size = len(raw_dict[raw_dict.keys()[0]])
+    size = len(rawdict[rawdict.keys()[0]])
     endind = int(size*frac)
     converted_list = []
     converted_list.append(str2num(rawdict['event_id'][:endind]))
@@ -76,9 +76,11 @@ def preproc_purchases(frac=1):
     converted_list.append(str2num(rawdict['minor_cat_name'][:endind]))
     converted_list.append(str2num(rawdict['venue_city'][:endind]))
     converted_list.append(str2num(rawdict['venue_state'][:endind]))
-    converted_list.append(rawdict['venue_postal_cd_sgmt_1'][:endind])
+    converted_list.append(str2num(rawdict['venue_postal_cd_sgmt_1'][:endind]))
     converted_list.append(str2num(rawdict['la_event_type_cat'][:endind]))
     converted_list.append(str2num(rawdict['delivery_type_cd'][:endind]))
+    converted_list.append(np.expand_dims(np.asarray(rawdict['tickets_purchased_qty'][:endind], dtype=int), axis=1))
+    converted_list.append(np.expand_dims(np.asarray(rawdict['trans_face_val_amt'][:endind], dtype=float), axis=1))
 
     result = np.concatenate(converted_list, axis=1)
     return result

@@ -83,8 +83,22 @@ def preproc_purchases(frac=0.01):
     converted_list.append(np.expand_dims(np.asarray(rawdict['trans_face_val_amt'][:endind], dtype=float), axis=1))
 
     result = np.concatenate(converted_list, axis=1)
-    return result
+    
+    num_purchases, num_features = result.shape
+    num_purchases, num_events = converted_list[0].shape
+    aggr_result = np.zeros((num_events, num_features-num_events))
+    
+    for i in range(num_events):
+        # Get sum of ticket price for the event
+        aggr_result[i, -1] = np.sum(result[:,-1][(result[:,i] == 1)])
+        # Get sum of ticket quantity purchased 
+        aggr_result[i, -2] = np.sum(result[:,-2][(result[:,i] == 1)])
+        # Get average for everything else
+        for j in range(num_events, num_features-2):
+            # Get the average for that data
+            aggr_result[i,j - num_events] = np.mean(result[:,j][(result[:,i] == 1)])
 
+    return result, aggr_result
 
 def reduce_logsumexp(input_tensor, reduction_indices=1, keep_dims=False):
   """Computes the sum of elements across dimensions of a tensor in log domain.

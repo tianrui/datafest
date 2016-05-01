@@ -123,31 +123,7 @@ def get_purchase_features(frac=0.01):
     dict = np.concatenate([np.expand_dims(np.arange(num_features), axis=1),result], axis=1)
     list = dict.tolist()
 
-    with open('purch_1percent_dict_2.csv', 'w') as file:
-        file.writelines(','.join(i) + '\n' for i in list)
-
-    return features
-
-def get_ga_features(frac=0.01):
-    rawdict = load_ga(100)
-    size = len(rawdict[rawdict.keys()[0]])
-    endind = int(size*frac)
-
-    features = []
-    features.append(np.expand_dims(np.array(['totals_visits']), axis=1))
-    features.append(np.expand_dims(np.array(['totals_hits']), axis=1))
-    attributes = ['device_devicecategory', 'geonetwork_subcontinent', 'geonetwork_region', 'geonetwork_metro']
-    for attr in attributes:
-        keys, indices = np.unique(rawdict[attr][:endind], return_inverse=True)
-        features.append(np.expand_dims(np.asarray(keys), axis=1))
-    features.append(np.expand_dims(np.array(['hits_type']), axis=1))
-
-    result = np.concatenate(features, axis=0)
-    num_features, blah = result.shape
-    dict = np.concatenate([np.expand_dims(np.arange(num_features), axis=1),result], axis=1)
-    list = dict.tolist()
-
-    with open('ga_1percent_dict.csv', 'w') as file:
+    with open('purch_%f_dict.csv' % (frac), 'w') as file:
         file.writelines(','.join(i) + '\n' for i in list)
 
     return features
@@ -196,7 +172,7 @@ def preproc_purchases_categorical(frac=0.01):
         row.append(str(np.sum(np.asarray(result[:,-1],dtype=float)[(result[:,0] == events[i])])))
         aggr_result.append(row)
 
-    with open('purch_1percent_aggr_cate.csv', 'w') as file:
+    with open('purch_%f_aggr_cate.csv' % (frac), 'w') as file:
         file.writelines(','.join(i) + '\n' for i in aggr_result)
 
     return result
@@ -260,6 +236,33 @@ def preprocess_ga(frac=0.01):
 
     return aggr_result
 
+def get_ga_features(frac=0.01):
+    rawdict = load_ga(100)
+    size = len(rawdict[rawdict.keys()[0]])
+    endind = int(size*frac)
+
+    features = []
+    features.append(np.expand_dims(np.array(['totals_visits']), axis=1))
+    features.append(np.expand_dims(np.array(['totals_hits']), axis=1))
+    attributes = ['device_devicecategory', 'geonetwork_subcontinent', 'geonetwork_region', 'geonetwork_metro']
+    for attr in attributes:
+        keys, indices = np.unique(rawdict[attr][:endind], return_inverse=True)
+        features.append(np.expand_dims(np.asarray(keys), axis=1))
+
+    features.append(np.expand_dims(np.array(['hits_hour']), axis=1))
+    features.append(np.expand_dims(np.array(['hits_time']), axis=1))
+    keys, indices = np.unique(rawdict['hits_type'][:endind], return_inverse=True)
+    features.append(np.expand_dims(np.asarray(keys), axis=1))
+
+    result = np.concatenate(features, axis=0)
+    num_features, blah = result.shape
+    dict = np.concatenate([np.expand_dims(np.arange(num_features), axis=1),result], axis=1)
+    list = dict.tolist()
+
+    with open('ga_1percent_dict.csv', 'w') as file:
+        file.writelines(','.join(i) + '\n' for i in list)
+
+    return features
 
 def reduce_logsumexp(input_tensor, reduction_indices=1, keep_dims=False):
   """Computes the sum of elements across dimensions of a tensor in log domain.

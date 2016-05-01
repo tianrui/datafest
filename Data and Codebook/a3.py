@@ -468,7 +468,7 @@ def main2_4():
 
 def mog_dim_down(mu, sig_sq, dim):
     K, D = mu.shape
-    mu = mu/np.rollaxis(sig_sq, axis=1)
+    mu = mu/np.rollaxis(sig_sq**2, axis=1)
     mu_range = np.amax(mu, axis=0) - np.amin(mu, axis=0)
     top_ind = np.argsort(mu_range)[-dim:]
     mu_dim = np.rollaxis(mu, 1)[top_ind]
@@ -530,8 +530,8 @@ def mog():
     # Set constants.
     K = 3
     DATASET_SIZE, DATA_DIM  = data.shape
-    LEARNINGRATE = 0.01
-    ITERATIONS = 1250
+    LEARNINGRATE = 0.05
+    ITERATIONS = 10000
     
     # Initialize tf graph.
     graph = tf.Graph()
@@ -596,6 +596,16 @@ def mog():
         
         down_dim = 2
         mu_dim, top_ind = mog_dim_down(m, sig_sq, down_dim)
+        #pdb.set_trace()
+        2d_data = np.concatenate((data[:, top_ind[0]][:, None], data[:, top_ind[1]][:, None]), axis=1)
+        2d_mu = np.concatenate((m[:,top_ind[0]][:, None], m[:,top_ind[1]][:, None]), axis=1)
+        2d_dicts = {'2d_data': 2d_data,
+                'mu': 2d_mu}
+
+        np.savez_compressed('purchases_2d',
+                2d_data)
+        np.savez_compressed('mu_2d',
+                2d_mu)
         # Plot soft assignment scatterplots
         # TODO: May be redo it so that C = C1*P(z=1|x) + C2*P(z=1|x) + C3*P(z=1|x)
         # Where C1 = Red, C2 = Green, C3 = Blue. Right now using colourmap 'viridis'
@@ -603,8 +613,8 @@ def mog():
         print ca_soft
         print "Top dimensions: %d %d" % (top_ind[0], top_ind[1])
         plt.figure()
-        plt.scatter(data[:,top_ind], data[:,top_ind], c=ca_soft, cmap='jet', marker='.')
-        plt.scatter(m[:,top_ind], m[:,top_ind], marker='h')
+        plt.scatter(data[:,top_ind[0]], data[:,top_ind[1]], c=ca_soft, cmap='jet', marker='.')
+        plt.scatter(m[:,top_ind[0]], m[:,top_ind[1]], marker='h')
         plt.title("Soft Assignment to Gaussian Cluster")
         # TODO: Add plot title, axis labels
         plt.savefig("purchase_mog.png")

@@ -101,6 +101,8 @@ def preproc_purchases(frac=0.01):
         # Get the Attendance rate based on other concerts at the same venue
         # aggr_result[i,-1] = np.sum(result[:,-2][(result[:,i] == 1)])
 
+    np.savetxt("purch_%f_aggr.csv" % (frac) ,aggr_result, delimiter=',')
+
     return result, aggr_result
 
 def get_purchase_features(frac=0.01):

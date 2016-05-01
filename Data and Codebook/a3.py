@@ -469,10 +469,9 @@ def main2_4():
 def mog_dim_down(mu, sig_sq, dim):
     K, D = mu.shape
     mu = mu/np.rollaxis(sig_sq, axis=1)
-    mu_range = np.amax(mu, axis=1) - np.amin(mu, axis=1)
-    top_ind = np.argsort(mu_range)[:dim]
-    mu_dim = mu[top_ind]  
-
+    mu_range = np.amax(mu, axis=0) - np.amin(mu, axis=0)
+    top_ind = np.argsort(mu_range)[-dim:]
+    mu_dim = np.rollaxis(mu, 1)[top_ind]
     return mu_dim, top_ind
 
 def logi_reg():
@@ -525,8 +524,8 @@ def logi_reg():
 
 def mog():
     # Load the data
-    data, _ = utils.preproc_purchases(frac=0.01)
-    print "Data preprocessing done..."
+    with np.load('mog_purchases.npz') as datafile:
+        data = datafile[datafile.keys()[0]]
 
     # Set constants.
     K = 3
@@ -560,11 +559,14 @@ def mog():
         
         losses = np.zeros(ITERATIONS, dtype=np.float32)
         tf.initialize_all_variables().run()
+        #pdb.set_trace()
 
         for i in range(ITERATIONS):
             mu, sig_sq, psi, pi, ca, ca_soft, post = session.run([tf_mu, tf_sig_sq, tf_psi, tf_pi, cluster_hard_assignment, cluster_soft_assignment, posterior])
             _, l, m = session.run([optimizer, loss, tf_mu])
-            losses[i] = l
+            #l = session.run([loss])
+            #m = session.run([tf_mu])
+            #losses[i] = l
             if i % 100 == 0:
                 print "Loss at iteration %d: " % (i), l 
             
@@ -625,8 +627,14 @@ def customer_seg():
     #print mu_dim
     return
 
+def preproc_data():
+    data, agg_res = utils.preproc_purchases(frac=0.01)
+    print "Data preprocessing done..."
+    np.savez_compressed('mog_purchases', data)
+    np.savez_compressed('agg_purchases', agg_res)
 
 if __name__ == '__main__':
+    #preproc_data()
     customer_seg()
 	#main1_2()
 	#main1_3()

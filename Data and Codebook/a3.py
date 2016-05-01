@@ -1,8 +1,11 @@
 import tensorflow as tf
 import numpy as np
 import utils
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import math
+import pdb
 
 def tf_eucl_dist(a, b):
     """ Compute the square Euclidean distance between input matrices
@@ -463,16 +466,72 @@ def main2_4():
 	
 	return
 
+def mog_dim_down(mu, sig_sq, dim):
+    K, D = mu.shape
+    mu = mu/np.rollaxis(sig_sq**2, axis=1)
+    mu_range = np.amax(mu, axis=0) - np.amin(mu, axis=0)
+    top_ind = np.argsort(mu_range)[-dim:]
+    mu_dim = np.rollaxis(mu, 1)[top_ind]
+    return mu_dim, top_ind
+
+def logi_reg():
+    """
+    Logistic regression over data
+    """
+    # Initialize hyperparams
+    LEARNINGRATE = 1e-3
+    EPOCHS = 1e3
+    BATCH_SIZE = 128
+    VALIDATION_FRAC = 0.3
+
+    # Load the data
+    data = utils.preproc_purchases()
+    size, dims = x.shape
+    train_endind = int(size * VALIDATION_FRAC)
+    x_train = data[:train_endind, :-1]
+    y_train = data[:train_endind, -1]
+    x_eval = data[train_endind:, :-1]
+    y_eval = data[train_endind:, -1]
+    
+    # Initialize graph
+    graph = tf.Graph()
+    with graph.as_default():
+        # Load data into tf.
+        tf_input = tf.placeholder(dtype=tf.float32, shape=[None, dims])
+        tf_tar = tf.placeholder(dtype=tf.float32, shape=[None])
+
+        tf_W = tf.Variable(tf.zeros([None, dims]))
+        tf_b = tf.Variable(tf.zeros([None]))
+
+        tf_y = tf.nn.sigmoid(tf.matmul(tf_W, tf_input, transpose_b=True, b_is_sparse=True) + tf_b)
+
+        loss = tf.reduce_mean((tf_y - tf_tar)**2) + tf.reduce_sum(tf_W **2)
+        optimizer = tf.train.AdamOptimizer(LEARNINGRATE, beta1=0.9, beta2=0.99, epsilon=1e-5).minimize(loss)
+
+    with tf.Session(graph=graph) as session:
+        tf.initialize_all_variables.run()
+
+        for i in xrange(EPOCHS):
+            for j in xrange(int(size/BATCH_SIZE)):
+                datafeed = {tf_input: x_train[j*BATCH_SIZE: (j+1)*BATCH_SIZE], tf_tar: y_train[j*BATCH_SIZE: (j+1)*BATCH_SIZE]}
+                _, l = session.run([optimizer, loss], feed_dict=datafeed)
+                print("training loss at %d: %lf" % (i, l))
+
+            # Validation
+            datafeed = {tf_input: x_eval, tf_tar: y_eval}
+            _, l = session.run([optimizer, loss], feed_dict=datafeed)
+            print("validation loss: %lf" % l)
+
 def mog():
     # Load the data
-    data_dict = utils.load_purchases()
-    data = utils.dict2array(data)
+    with np.load('mog_purchases.npz') as datafile:
+        data = datafile[datafile.keys()[0]]
 
     # Set constants.
     K = 3
     DATASET_SIZE, DATA_DIM  = data.shape
-    LEARNINGRATE = 0.01
-    ITERATIONS = 750
+    LEARNINGRATE = 0.05
+    ITERATIONS = 10000
     
     # Initialize tf graph.
     graph = tf.Graph()
@@ -500,11 +559,14 @@ def mog():
         
         losses = np.zeros(ITERATIONS, dtype=np.float32)
         tf.initialize_all_variables().run()
+        #pdb.set_trace()
 
         for i in range(ITERATIONS):
             mu, sig_sq, psi, pi, ca, ca_soft, post = session.run([tf_mu, tf_sig_sq, tf_psi, tf_pi, cluster_hard_assignment, cluster_soft_assignment, posterior])
             _, l, m = session.run([optimizer, loss, tf_mu])
-            losses[i] = l
+            #l = session.run([loss])
+            #m = session.run([tf_mu])
+            #losses[i] = l
             if i % 100 == 0:
                 print "Loss at iteration %d: " % (i), l 
             
@@ -528,27 +590,62 @@ def mog():
         plt.scatter(data[:,0], data[:,1], c=colour_list, marker='.')
         # Plot mean
         plt.scatter(m[:,0], m[:,1], marker='h')
-        plt.show()
+        plt.savefig("purchase_kmeans.png")
+        #plt.show()
         print m
         
+        down_dim = 2
+        mu_dim, top_ind = mog_dim_down(m, sig_sq, down_dim)
+        #pdb.set_trace()
+        2d_data = np.concatenate((data[:, top_ind[0]][:, None], data[:, top_ind[1]][:, None]), axis=1)
+        2d_mu = np.concatenate((m[:,top_ind[0]][:, None], m[:,top_ind[1]][:, None]), axis=1)
+        2d_dicts = {'2d_data': 2d_data,
+                'mu': 2d_mu}
+
+        np.savez_compressed('purchases_2d',
+                2d_data)
+        np.savez_compressed('mu_2d',
+                2d_mu)
         # Plot soft assignment scatterplots
         # TODO: May be redo it so that C = C1*P(z=1|x) + C2*P(z=1|x) + C3*P(z=1|x)
         # Where C1 = Red, C2 = Green, C3 = Blue. Right now using colourmap 'viridis'
         print "Cluster soft assignment:"
         print ca_soft
+        print "Top dimensions: %d %d" % (top_ind[0], top_ind[1])
         plt.figure()
-        plt.scatter(data[:,0], data[:,1], c=ca_soft, cmap='viridis', marker='.')
-        plt.scatter(m[:,0], m[:,1], marker='h')
+        plt.scatter(data[:,top_ind[0]], data[:,top_ind[1]], c=ca_soft, cmap='jet', marker='.')
+        plt.scatter(m[:,top_ind[0]], m[:,top_ind[1]], marker='h')
         plt.title("Soft Assignment to Gaussian Cluster")
         # TODO: Add plot title, axis labels
-        plt.imsave("purchase_mog.csv")
+        plt.savefig("purchase_mog.png")
 
         #plt.show()
     
+    return mu, sig_sq
+
+def customer_seg():
+    mu, sig_sq = mog()
+    #down_dim = 2
+    #mu_dim, top_ind = mog_dim_down(mu, sig_sq, down_dim)
+    #print "Top %d dims: " % (down_dim)
+    #plt.figure()
+    #plt.scatter(mu_dim[:,0], mu_dim[:,1], marker='h')
+    #plt.title("Soft Assignment to Gaussian Cluster")
+    ## TODO: Add plot title, axis labels
+    #plt.savefig("purchase_mog.png")
+
+    #print mu_dim
     return
 
+def preproc_data():
+    data, agg_res = utils.preproc_purchases(frac=0.01)
+    print "Data preprocessing done..."
+    np.savez_compressed('mog_purchases', data)
+    np.savez_compressed('agg_purchases', agg_res)
+
 if __name__ == '__main__':
-    mog()
+    #preproc_data()
+    customer_seg()
 	#main1_2()
 	#main1_3()
 	#main1_4("data2D.npy")
